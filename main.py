@@ -1,6 +1,8 @@
-def main():
-    print("Hello from tutorial-mcp-low-level!")
+from mcp.server import MCPServer
 
+mcp = MCPServer("learn")
 
-if __name__ == "__main__":
-    main()
+@mcp.tool()
+def add(a: int, b: int) -> int:
+    """Add two integers together!"""
+    return a+b
