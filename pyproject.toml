@@ -1,7 +1,7 @@
 [project]
 name = "tutorial-mcp-low-level"
 version = "0.1.0"
-description = "Add your description here"
+description = "Collection of MCP samples for learning purposes, using low level commands"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
