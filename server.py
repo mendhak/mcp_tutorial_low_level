@@ -1,48 +1,51 @@
-from fastmcp import FastMCP, Context
 import asyncio
-
-ISSUER = "http://localhost:8080/realms/mcp"
-MCP_URL = "http://localhost:8000/mcp"
-AUDIENCE = MCP_URL  # must match an `aud` claim you configure in Keycloak
-
-from fastmcp.server.auth.providers.jwt import JWTVerifier
+from fastmcp import Context, FastMCP
 from fastmcp.server.auth import RemoteAuthProvider
-
+from fastmcp.server.auth.providers.jwt import JWTVerifier
 from pydantic import AnyHttpUrl
 
-# Configure JWT verification against your identity provider
-verifier = JWTVerifier(
-    jwks_uri=f"{ISSUER}/protocol/openid-connect/certs",
-    issuer=ISSUER,
-    audience=AUDIENCE,
-    algorithm="RS256"
-)
+
+ISSUER = "http://localhost:8080/realms/mcp"
+AUDIENCE = "http://localhost:8000/mcp"  # must match an `aud` claim configured in Keycloak
 
 auth = RemoteAuthProvider(
-    token_verifier=verifier,
+    token_verifier=JWTVerifier(
+        jwks_uri=f"{ISSUER}/protocol/openid-connect/certs",
+        issuer=ISSUER,
+        audience=AUDIENCE,
+        algorithm="RS256",
+    ),
     authorization_servers=[AnyHttpUrl(ISSUER)],
     base_url="http://localhost:8000",
 )
 
-mcp = FastMCP("learn", auth=auth)
+# Unauthenticated: use this one.
+mcp = FastMCP("learn")
+
+# Authenticated: use this one instead 
+# mcp = FastMCP("learn", auth=auth)
+
 
 @mcp.tool()
 def add(a: int, b: int) -> int:
     """Add two integers together!"""
-    return a+b
+    return a + b
+
 
 @mcp.resource("database://users")
 def users_table() -> list[dict]:
     """Return a table of the users"""
     return [
         {"id": 1, "name": "Alice"},
-        {"id": 2, "name": "Bob"}
+        {"id": 2, "name": "Bob"},
     ]
+
 
 @mcp.prompt()
 def ask_question(question: str) -> str:
     """Ask a question and get an answer"""
     return f"You asked: {question} but there is no answer."
+
 
 @mcp.tool()
 async def slow_count(n: int, ctx: Context) -> str:

@@ -14,16 +14,16 @@ uv add fastmcp
 
 ## First MCP - basic STDIO tool
 
-Now right away start by creating a main.py with a minimal MCP server setup:
+Now right away start by creating a server.py with a minimal MCP server setup:
 
-< 01_stdio_basic/main.py >
+< 01_stdio_basic/server.py >
 
 This is simply a single method that returns the sum of two numbers, and the @mcp.tool registers it as a tool within the MCP server. 
 
 Right now it's only visible over stdio. For now just run it. Nothing will happen but it's listening through stdio. 
 
 ```bash
-fastmcp run main.py:mcp --transport stdio
+fastmcp run server.py:mcp --transport stdio
 
 ```
 
@@ -55,7 +55,7 @@ However, the server in this case needs the input in a single line, rather than p
 
 
 ```bash
-$ fastmcp run main.py:mcp --transport stdio
+$ fastmcp run server.py:mcp --transport stdio
 {  "jsonrpc": "2.0", "id": "discover-1","method": "server/discover","params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },"io.modelcontextprotocol/clientCapabilities":{}}}}
 
 {"jsonrpc":"2.0","id":"discover-1","result":{"cacheScope":"private","capabilities":{"prompts":{"listChanged":true},"resources":{"listChanged":true,"subscribe":true},"tools":{"listChanged":true}},"resultType":"complete","supportedVersions":["2026-07-28"],"ttlMs":0,"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"learn","version":""}}}}
@@ -82,7 +82,7 @@ Let's do the discover call again, pipe the input to the server. This will make o
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c | fastmcp run main.py:mcp --transport stdio | jq
+}' | jq -c | fastmcp run server.py:mcp --transport stdio | jq
 
 {
   "jsonrpc": "2.0",
@@ -134,7 +134,7 @@ $ echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c | fastmcp run main.py:mcp --transport stdio | jq
+}' | jq -c | fastmcp run server.py:mcp --transport stdio | jq
 
 {
   "jsonrpc": "2.0",
@@ -214,7 +214,7 @@ $ (echo '{
       "b": 3
     }
   }
-}' | jq -c ; sleep 1) | fastmcp run main.py:mcp --transport stdio | jq
+}' | jq -c ; sleep 1) | fastmcp run server.py:mcp --transport stdio | jq
 
 {
   "jsonrpc": "2.0",
@@ -266,7 +266,7 @@ $ echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c | fastmcp run main.py:mcp --transport stdio  | jq
+}' | jq -c | fastmcp run server.py:mcp --transport stdio  | jq
 
 {
   "jsonrpc": "2.0",
@@ -312,7 +312,7 @@ $ (echo '{
     },
     "uri": "database://users"
   }
-}' | jq -c ; sleep 1) | fastmcp run main.py:mcp --transport stdio  | jq
+}' | jq -c ; sleep 1) | fastmcp run server.py:mcp --transport stdio  | jq
 
 
 {
@@ -355,7 +355,7 @@ $ (echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c; sleep 1) | fastmcp run main.py:mcp --transport stdio  | jq
+}' | jq -c; sleep 1) | fastmcp run server.py:mcp --transport stdio  | jq
 
 {
   "jsonrpc": "2.0",
@@ -409,7 +409,7 @@ $ (echo '{
       "question": "What is MCP?"
     }
   }
-}' | jq -c ; sleep 1) | fastmcp run main.py:mcp --transport stdio  | jq
+}' | jq -c ; sleep 1) | fastmcp run server.py:mcp --transport stdio  | jq
 
 {
   "jsonrpc": "2.0",
@@ -446,7 +446,7 @@ To serve the same MCP server over HTTP, we add FastAPI integration.
 Then run it with 
 
 ```bash
-fastmcp run main.py:mcp --transport http --port 8000
+fastmcp run server.py:mcp --transport http --port 8000
 ```
 
 Now, let's call the same methods as before, but using curl commands. 
@@ -827,7 +827,7 @@ Modify the MCP server configuration to include the Keycloak identity provider.
 Now run the web server again
 
 ```bash
-fastmcp run main.py:mcp --transport http --port 8000
+fastmcp run server.py:mcp --transport http --port 8000
 ```
 
 And try the discover endpoint once more to get an HTTP 401 response. 
