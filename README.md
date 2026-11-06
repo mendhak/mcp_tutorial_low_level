@@ -967,3 +967,23 @@ After that, all the subsequent calls are the same as before, just making sure to
 
 In case you haven't spotted the security hole here, the MCP CIMD mechanism allows us to impersonate any 'well known' MCP client by obtaining an access token for it, such as VSCode, Claude Code, etc. From the authorization server's perspective, they are none the wiser, they think we are the legitimate client. However, the Client ID being a URL immediately introduces the risk of SSRF, as an attacker could potentially make the server perform requests to arbitrary URLs. As can be seen, MCP's security model continues to be an afterthought, and it should not be a surprise if this goes through a number of further revisions in the future. 
 
+
+
+## Finishing notes
+
+The idea here was to understand MCP by implementing the calls that an MCP client would perform, but using normal tools found in Linux. This approach allows us to see the underlying mechanisms and potential security implications without relying on a specific client implementation.
+
+That said, this set up _can_ be used with an MCP client too. With the above MCP server and Keycloak still running, it's possible to add the MCP URL to VSCode as an MCP endpoint and interact with it using the client. 
+
+This could be as simple as an `.mcp.json` file with:
+
+```
+{
+ "mcpServers": {
+		"my_mcp_test": {
+		"url": "http://localhost:8000/mcp",
+		"type": "http"
+	}
+ }
+}
+```
