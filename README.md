@@ -1,3 +1,7 @@
+# Learn how MCP works with low level commands
+
+## Setup 
+
 Start by creating a folder for the tutorial, then a virtual environment with some dependencies that will be needed:  
 
 ```bash
@@ -7,6 +11,8 @@ uv init
 uv sync
 uv add fastapi mcp[cli] uvicorn[standard]
 ```
+
+## First MCP - basic STDIO tool
 
 Now right away start by creating a main.py with a minimal MCP server setup:
 
@@ -58,11 +64,11 @@ $ uv run mcp run main.py
 
 This is an awkward way of interacting with the tool, but essentially this is what your real MCP clients are doing when they use a local MCP server over stdio. Press Ctrl+C a few times to get out of this mode. 
 
-Let's do the discover call again, pipe the input to the server. This will make our input and output a bit more readable. We can use `jq` to help us pass the payload as a single line, and also to read the response nicely. 
+Let's do the discover call again, pipe the input to the server. This will make our input and output a bit more readable. We can use `jq` to help us pass the payload as a single line, and also to read the response nicely. But we also need to add a little delay, otherwise the listener will treat the EOF as a shutdown signal. 
 
 
 ```bash
- $ echo '{
+ $ (echo '{
   "jsonrpc": "2.0",
   "id": "discover-1",
   "method": "server/discover",
@@ -76,7 +82,7 @@ Let's do the discover call again, pipe the input to the server. This will make o
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c | uv run mcp run main.py  | jq
+}' | jq -c; sleep 1) | uv run mcp run main.py  | jq
 
 {
   "jsonrpc": "2.0",
@@ -114,7 +120,7 @@ Let's do the discover call again, pipe the input to the server. This will make o
 You can see in the response, the capabilities mentions tools, so we can ask for the list of tools as our next step. The payload is similar, the method is `tools/list`. 
 
 ```bash
-$ echo '{
+$ (echo '{
   "jsonrpc": "2.0",
   "id": "tools-1",
   "method": "tools/list",
@@ -124,7 +130,7 @@ $ echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c |  uv run mcp run main.py  | jq
+}' | jq -c; sleep 1) |  uv run mcp run main.py  | jq
 {
   "jsonrpc": "2.0",
   "id": "tools-1",
@@ -185,7 +191,7 @@ Interesting! The tool listed has a description which comes from the method's com
 Let's call the `add` tool and add 5 and 3, which we pass in the params as arguments.  
 
 ```bash
-$ echo '{
+$ (echo '{
   "jsonrpc": "2.0",
   "id": "call-add-1",
   "method": "tools/call",
@@ -200,7 +206,7 @@ $ echo '{
       "b": 3
     }
   }
-}' | jq -c | uv run mcp run main.py  | jq
+}' | jq -c; sleep 1) | uv run mcp run main.py  | jq
 {
   "jsonrpc": "2.0",
   "id": "call-add-1",
@@ -216,6 +222,188 @@ $ echo '{
     "structuredContent": {
       "result": 8
     },
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+## What were the other two - resources and prompts
+
+MCP is well known for tools, but it has many other features. It can do resources - pieces of data or assets - and prompts - which allow natural language input for other LLM. 
+
+Let's add a resource, and test it. 
+
+< code snippet >
+
+
+List it
+
+```bash
+$ (echo '{
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "method": "resources/list",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}' | jq -c; sleep 1) |  uv run mcp run main.py  | jq
+
+{
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "result": {
+    "cacheScope": "private",
+    "resources": [
+      {
+        "description": "Return a table of the users",
+        "mimeType": "text/plain",
+        "name": "users_table",
+        "uri": "database://users"
+      }
+    ],
+    "resultType": "complete",
+    "ttlMs": 0,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+And then call it to get the contents of the `users_table` resource.
+
+```bash
+$ (echo '{
+  "jsonrpc": "2.0",
+  "id": "get-users-table-1",
+  "method": "resources/read",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
+    "uri": "database://users"
+  }
+}' | jq -c; sleep 1) | uv run mcp run main.py  | jq
+
+
+{
+  "jsonrpc": "2.0",
+  "id": "get-users-table-1",
+  "result": {
+    "cacheScope": "private",
+    "contents": [
+      {
+        "mimeType": "text/plain",
+        "text": "[\n  {\n    \"id\": 1,\n    \"name\": \"Alice\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Bob\"\n  }\n]",
+        "uri": "database://users"
+      }
+    ],
+    "resultType": "complete",
+    "ttlMs": 0,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+And just for completeness, add a prompt
+
+< snippet >
+
+
+```bash
+$ (echo '{
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "method": "prompts/list",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}' | jq -c; sleep 1) |  uv run mcp run main.py  | jq
+
+{
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "result": {
+    "cacheScope": "private",
+    "prompts": [
+      {
+        "arguments": [
+          {
+            "name": "question",
+            "required": true
+          }
+        ],
+        "description": "Ask a question and get an answer",
+        "name": "ask_question"
+      }
+    ],
+    "resultType": "complete",
+    "ttlMs": 0,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+Now let's call that prompt. 
+
+
+```bash
+$ (echo '{
+  "jsonrpc": "2.0",
+  "id": "get-prompt-1",
+  "method": "prompts/get",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
+    "name": "ask_question",
+    "arguments": {
+      "question": "What is MCP?"
+    }
+  }
+}' | jq -c; sleep 1) | uv run mcp run main.py | jq
+
+{
+  "jsonrpc": "2.0",
+  "id": "get-prompt-1",
+  "result": {
+    "description": "Ask a question and get an answer",
+    "messages": [
+      {
+        "content": {
+          "text": "You asked: What is MCP? but there is no answer.",
+          "type": "text"
+        },
+        "role": "user"
+      }
+    ],
+    "resultType": "complete",
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",

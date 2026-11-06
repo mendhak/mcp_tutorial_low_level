@@ -6,3 +6,17 @@ mcp = MCPServer("learn")
 def add(a: int, b: int) -> int:
     """Add two integers together!"""
     return a+b
+
+
+@mcp.resource()
+def my_table() -> list[dict]:
+    """Return a table of data"""
+    return [
+        {"id": 1, "name": "Alice"},
+        {"id": 2, "name": "Bob"}
+    ]
+
+@mcp.prompt()
+def ask_question(question: str) -> str:
+    """Ask a question and get an answer"""
+    return f"You asked: {question}"
