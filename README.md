@@ -9,7 +9,7 @@ mkdir -p tutorial_mcp_low_level
 cd tutorial_mcp_low_level
 uv init
 uv sync
-uv add fastapi mcp[cli] uvicorn[standard]
+uv add fastmcp
 ```
 
 ## First MCP - basic STDIO tool
@@ -23,7 +23,7 @@ This is simply a single method that returns the sum of two numbers, and the @mcp
 Right now it's only visible over stdio. For now just run it. Nothing will happen but it's listening through stdio. 
 
 ```bash
-uv run mcp run main.py
+fastmcp run main.py:mcp --transport stdio
 
 ```
 
@@ -55,7 +55,7 @@ However, the server in this case needs the input in a single line, rather than p
 
 
 ```bash
-$ uv run mcp run main.py
+$ fastmcp run main.py:mcp --transport stdio
 {  "jsonrpc": "2.0", "id": "discover-1","method": "server/discover","params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },"io.modelcontextprotocol/clientCapabilities":{}}}}
 
 {"jsonrpc":"2.0","id":"discover-1","result":{"cacheScope":"private","capabilities":{"prompts":{"listChanged":true},"resources":{"listChanged":true,"subscribe":true},"tools":{"listChanged":true}},"resultType":"complete","supportedVersions":["2026-07-28"],"ttlMs":0,"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"learn","version":""}}}}
@@ -68,7 +68,7 @@ Let's do the discover call again, pipe the input to the server. This will make o
 
 
 ```bash
- $ (echo '{
+ $ echo '{
   "jsonrpc": "2.0",
   "id": "discover-1",
   "method": "server/discover",
@@ -82,36 +82,40 @@ Let's do the discover call again, pipe the input to the server. This will make o
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c; sleep 1) | uv run mcp run main.py  | jq
+}' | jq -c | fastmcp run main.py:mcp --transport stdio | jq
 
 {
   "jsonrpc": "2.0",
   "id": "discover-1",
   "result": {
-    "cacheScope": "private",
-    "capabilities": {
-      "prompts": {
-        "listChanged": true
-      },
-      "resources": {
-        "listChanged": true,
-        "subscribe": true
-      },
-      "tools": {
-        "listChanged": true
-      }
-    },
-    "resultType": "complete",
-    "supportedVersions": [
-      "2026-07-28"
-    ],
-    "ttlMs": 0,
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
-    }
+    },
+    "ttlMs": 0,
+    "cacheScope": "private",
+    "supportedVersions": [
+      "2026-07-28"
+    ],
+    "capabilities": {
+      "logging": {},
+      "prompts": {
+        "listChanged": false
+      },
+      "resources": {
+        "subscribe": false,
+        "listChanged": false
+      },
+      "tools": {
+        "listChanged": false
+      },
+      "extensions": {
+        "io.modelcontextprotocol/ui": {}
+      }
+    },
+    "resultType": "complete"
   }
 }
 ```
@@ -120,7 +124,7 @@ Let's do the discover call again, pipe the input to the server. This will make o
 You can see in the response, the capabilities mentions tools, so we can ask for the list of tools as our next step. The payload is similar, the method is `tools/list`. 
 
 ```bash
-$ (echo '{
+$ echo '{
   "jsonrpc": "2.0",
   "id": "tools-1",
   "method": "tools/list",
@@ -130,7 +134,8 @@ $ (echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c; sleep 1) |  uv run mcp run main.py  | jq
+}' | jq -c | fastmcp run main.py:mcp --transport stdio | jq
+
 {
   "jsonrpc": "2.0",
   "id": "tools-1",
@@ -139,46 +144,49 @@ $ (echo '{
     "resultType": "complete",
     "tools": [
       {
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        },
         "description": "Add two integers together!",
         "inputSchema": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "a": {
-              "title": "A",
               "type": "integer"
             },
             "b": {
-              "title": "B",
               "type": "integer"
             }
           },
           "required": [
             "a",
             "b"
-          ],
-          "title": "addArguments"
+          ]
         },
         "name": "add",
         "outputSchema": {
           "properties": {
             "result": {
-              "title": "Result",
               "type": "integer"
             }
           },
           "required": [
             "result"
           ],
-          "title": "addOutput",
-          "type": "object"
-        }
+          "type": "object",
+          "x-fastmcp-wrap-result": true
+        },
+        "title": "Add"
       }
     ],
     "ttlMs": 0,
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -206,11 +214,21 @@ $ (echo '{
       "b": 3
     }
   }
-}' | jq -c; sleep 1) | uv run mcp run main.py  | jq
+}' | jq -c ; sleep 1) | fastmcp run main.py:mcp --transport stdio | jq
+
 {
   "jsonrpc": "2.0",
   "id": "call-add-1",
   "result": {
+    "_meta": {
+      "fastmcp": {
+        "wrap_result": true
+      },
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": "4.1.6"
+      }
+    },
     "content": [
       {
         "text": "8",
@@ -221,18 +239,12 @@ $ (echo '{
     "resultType": "complete",
     "structuredContent": {
       "result": 8
-    },
-    "_meta": {
-      "io.modelcontextprotocol/serverInfo": {
-        "name": "learn",
-        "version": ""
-      }
     }
   }
 }
 ```
 
-## What were the other two - resources and prompts
+## Other types - resources and prompts
 
 MCP is well known for tools, but it has many other features. It can do resources - pieces of data or assets - and prompts - which allow natural language input for other LLM. 
 
@@ -244,7 +256,7 @@ Let's add a resource, and test it.
 List it
 
 ```bash
-$ (echo '{
+$ echo '{
   "jsonrpc": "2.0",
   "id": "resource-1",
   "method": "resources/list",
@@ -254,7 +266,7 @@ $ (echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c; sleep 1) |  uv run mcp run main.py  | jq
+}' | jq -c | fastmcp run main.py:mcp --transport stdio  | jq
 
 {
   "jsonrpc": "2.0",
@@ -263,6 +275,11 @@ $ (echo '{
     "cacheScope": "private",
     "resources": [
       {
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        },
         "description": "Return a table of the users",
         "mimeType": "text/plain",
         "name": "users_table",
@@ -274,7 +291,7 @@ $ (echo '{
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -295,7 +312,7 @@ $ (echo '{
     },
     "uri": "database://users"
   }
-}' | jq -c; sleep 1) | uv run mcp run main.py  | jq
+}' | jq -c ; sleep 1) | fastmcp run main.py:mcp --transport stdio  | jq
 
 
 {
@@ -306,7 +323,7 @@ $ (echo '{
     "contents": [
       {
         "mimeType": "text/plain",
-        "text": "[\n  {\n    \"id\": 1,\n    \"name\": \"Alice\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Bob\"\n  }\n]",
+        "text": "[{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]",
         "uri": "database://users"
       }
     ],
@@ -315,7 +332,7 @@ $ (echo '{
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -338,7 +355,7 @@ $ (echo '{
       "io.modelcontextprotocol/clientCapabilities": {}
     }
   }
-}' | jq -c; sleep 1) |  uv run mcp run main.py  | jq
+}' | jq -c; sleep 1) | fastmcp run main.py:mcp --transport stdio  | jq
 
 {
   "jsonrpc": "2.0",
@@ -347,6 +364,11 @@ $ (echo '{
     "cacheScope": "private",
     "prompts": [
       {
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        },
         "arguments": [
           {
             "name": "question",
@@ -362,7 +384,7 @@ $ (echo '{
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -387,7 +409,7 @@ $ (echo '{
       "question": "What is MCP?"
     }
   }
-}' | jq -c; sleep 1) | uv run mcp run main.py | jq
+}' | jq -c ; sleep 1) | fastmcp run main.py:mcp --transport stdio  | jq
 
 {
   "jsonrpc": "2.0",
@@ -407,7 +429,7 @@ $ (echo '{
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -424,7 +446,7 @@ To serve the same MCP server over HTTP, we add FastAPI integration.
 Then run it with 
 
 ```bash
-uv run uvicorn main:app --port 8000
+fastmcp run main.py:mcp --transport http --port 8000
 ```
 
 Now, let's call the same methods as before, but using curl commands. 
@@ -452,30 +474,34 @@ $ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" 
   "jsonrpc": "2.0",
   "id": "discover-1",
   "result": {
-    "cacheScope": "private",
-    "capabilities": {
-      "prompts": {
-        "listChanged": true
-      },
-      "resources": {
-        "listChanged": true,
-        "subscribe": true
-      },
-      "tools": {
-        "listChanged": true
-      }
-    },
-    "resultType": "complete",
-    "supportedVersions": [
-      "2026-07-28"
-    ],
-    "ttlMs": 0,
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
-    }
+    },
+    "ttlMs": 0,
+    "cacheScope": "private",
+    "supportedVersions": [
+      "2026-07-28"
+    ],
+    "capabilities": {
+      "logging": {},
+      "prompts": {
+        "listChanged": false
+      },
+      "resources": {
+        "subscribe": false,
+        "listChanged": false
+      },
+      "tools": {
+        "listChanged": false
+      },
+      "extensions": {
+        "io.modelcontextprotocol/ui": {}
+      }
+    },
+    "resultType": "complete"
   }
 }
 ```
@@ -483,8 +509,7 @@ $ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" 
 Next, we list the tools
 
 ```bash
-$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Proto
-col-Version: 2026-07-28" -H "Mcp-Method: tools/list" -d '{     
+$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: tools/list" -d '{     
   "jsonrpc": "2.0",
   "id": "tools-1",
   "method": "tools/list",
@@ -496,7 +521,6 @@ col-Version: 2026-07-28" -H "Mcp-Method: tools/list" -d '{
   }
 }' | jq
 
-
 {
   "jsonrpc": "2.0",
   "id": "tools-1",
@@ -505,46 +529,49 @@ col-Version: 2026-07-28" -H "Mcp-Method: tools/list" -d '{
     "resultType": "complete",
     "tools": [
       {
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        },
         "description": "Add two integers together!",
         "inputSchema": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "a": {
-              "title": "A",
               "type": "integer"
             },
             "b": {
-              "title": "B",
               "type": "integer"
             }
           },
           "required": [
             "a",
             "b"
-          ],
-          "title": "addArguments"
+          ]
         },
         "name": "add",
         "outputSchema": {
           "properties": {
             "result": {
-              "title": "Result",
               "type": "integer"
             }
           },
           "required": [
             "result"
           ],
-          "title": "addOutput",
-          "type": "object"
-        }
+          "type": "object",
+          "x-fastmcp-wrap-result": true
+        },
+        "title": "Add"
       }
     ],
     "ttlMs": 0,
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -555,8 +582,7 @@ And now to call the tool, once again notice the headers being passed - protocol 
 
 
 ```bash
-$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Proto
-col-Version: 2026-07-28" -H "Mcp-Method: tools/call" -H "Mcp-Name: add" -d '{
+$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: tools/call" -H "Mcp-Name: add" -d '{
   "jsonrpc": "2.0",
   "id": "call-add-1",
   "method": "tools/call",
@@ -577,6 +603,15 @@ col-Version: 2026-07-28" -H "Mcp-Method: tools/call" -H "Mcp-Name: add" -d '{
   "jsonrpc": "2.0",
   "id": "call-add-1",
   "result": {
+    "_meta": {
+      "fastmcp": {
+        "wrap_result": true
+      },
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": "4.1.6"
+      }
+    },
     "content": [
       {
         "text": "8",
@@ -587,12 +622,6 @@ col-Version: 2026-07-28" -H "Mcp-Method: tools/call" -H "Mcp-Name: add" -d '{
     "resultType": "complete",
     "structuredContent": {
       "result": 8
-    },
-    "_meta": {
-      "io.modelcontextprotocol/serverInfo": {
-        "name": "learn",
-        "version": ""
-      }
     }
   }
 }
@@ -613,6 +642,7 @@ Just for completeness I'll also call a resource.
     "uri": "database://users"
   }
 }' | jq
+
 {
   "jsonrpc": "2.0",
   "id": "get-users-table-1",
@@ -621,7 +651,7 @@ Just for completeness I'll also call a resource.
     "contents": [
       {
         "mimeType": "text/plain",
-        "text": "[\n  {\n    \"id\": 1,\n    \"name\": \"Alice\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Bob\"\n  }\n]",
+        "text": "[{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]",
         "uri": "database://users"
       }
     ],
@@ -630,7 +660,7 @@ Just for completeness I'll also call a resource.
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -640,8 +670,7 @@ Just for completeness I'll also call a resource.
 And a prompt
 
 ```bash
-curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Proto
-col-Version: 2026-07-28" -H "Mcp-Method: prompts/get" -H "Mcp-Name: ask_question"  -d '{     
+curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: prompts/get" -H "Mcp-Name: ask_question"  -d '{     
   "jsonrpc": "2.0",
   "id": "get-prompt-1",
   "method": "prompts/get",
@@ -656,6 +685,7 @@ col-Version: 2026-07-28" -H "Mcp-Method: prompts/get" -H "Mcp-Name: ask_question
     }
   }
 }' | jq
+
 {
   "jsonrpc": "2.0",
   "id": "get-prompt-1",
@@ -674,7 +704,7 @@ col-Version: 2026-07-28" -H "Mcp-Method: prompts/get" -H "Mcp-Name: ask_question
     "_meta": {
       "io.modelcontextprotocol/serverInfo": {
         "name": "learn",
-        "version": ""
+        "version": "4.1.6"
       }
     }
   }
@@ -716,22 +746,22 @@ curl -N http://localhost:8000/mcp \
   }'
 
 event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":1,"total":5,"message":"Counted 1"}}
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":1.0,"total":5.0,"message":"Counted 1"}}
 
 event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":2,"total":5,"message":"Counted 2"}}
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":2.0,"total":5.0,"message":"Counted 2"}}
 
 event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":3,"total":5,"message":"Counted 3"}}
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":3.0,"total":5.0,"message":"Counted 3"}}
 
 event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":4,"total":5,"message":"Counted 4"}}
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":4.0,"total":5.0,"message":"Counted 4"}}
 
 event: message
-data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":5,"total":5,"message":"Counted 5"}}
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":5.0,"total":5.0,"message":"Counted 5"}}
 
 event: message
-data: {"jsonrpc":"2.0","id":"slow-1","result":{"content":[{"text":"Counted to 5","type":"text"}],"isError":false,"resultType":"complete","structuredContent":{"result":"Counted to 5"},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"learn","version":""}}}}
+data: {"jsonrpc":"2.0","id":"slow-1","result":{"_meta":{"fastmcp":{"wrap_result":true},"io.modelcontextprotocol/serverInfo":{"name":"learn","version":"4.1.6"}},"content":[{"text":"Done! Counted to 5","type":"text"}],"isError":false,"resultType":"complete","structuredContent":{"result":"Done! Counted to 5"}}}
 
 ```
 

@@ -1,11 +1,7 @@
+from fastmcp import FastMCP, Context
 import asyncio
-from mcp.server import MCPServer
-from mcp.server.mcpserver import Context
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
 
-
-mcp = MCPServer("learn")
+mcp = FastMCP("learn")
 
 @mcp.tool()
 def add(a: int, b: int) -> int:
@@ -25,18 +21,6 @@ def ask_question(question: str) -> str:
     """Ask a question and get an answer"""
     return f"You asked: {question} but there is no answer."
 
-
-
-# Serve it over HTTP
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with mcp.session_manager.run():
-        yield
-
-app = FastAPI(lifespan=lifespan)
-app.mount("/", mcp.streamable_http_app())
-
-# A slow tool with progress, for streaming HTTP. 
 @mcp.tool()
 async def slow_count(n: int, ctx: Context) -> str:
     """Count to n, reporting progress each second"""
