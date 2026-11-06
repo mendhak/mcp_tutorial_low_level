@@ -1,4 +1,7 @@
 from mcp.server import MCPServer
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
 
 mcp = MCPServer("learn")
 
@@ -19,3 +22,14 @@ def users_table() -> list[dict]:
 def ask_question(question: str) -> str:
     """Ask a question and get an answer"""
     return f"You asked: {question} but there is no answer."
+
+
+
+# Serve it over HTTP
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with mcp.session_manager.run():
+        yield
+
+app = FastAPI(lifespan=lifespan)
+app.mount("/", mcp.streamable_http_app())

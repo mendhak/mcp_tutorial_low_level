@@ -246,7 +246,7 @@ List it
 ```bash
 $ (echo '{
   "jsonrpc": "2.0",
-  "id": "tools-1",
+  "id": "resource-1",
   "method": "resources/list",
   "params": {
     "_meta": {
@@ -258,7 +258,7 @@ $ (echo '{
 
 {
   "jsonrpc": "2.0",
-  "id": "tools-1",
+  "id": "resource-1",
   "result": {
     "cacheScope": "private",
     "resources": [
@@ -330,7 +330,7 @@ And just for completeness, add a prompt
 ```bash
 $ (echo '{
   "jsonrpc": "2.0",
-  "id": "tools-1",
+  "id": "prompt-1",
   "method": "prompts/list",
   "params": {
     "_meta": {
@@ -342,7 +342,7 @@ $ (echo '{
 
 {
   "jsonrpc": "2.0",
-  "id": "tools-1",
+  "id": "prompt-1",
   "result": {
     "cacheScope": "private",
     "prompts": [
@@ -413,3 +413,271 @@ $ (echo '{
   }
 }
 ```
+
+
+## MCP over HTTP
+
+To serve the same MCP server over HTTP, we add FastAPI integration. 
+
+<code snippet>
+
+Then run it with 
+
+```bash
+uv run uvicorn main:app --port 8000
+```
+
+Now, let's call the same methods as before, but using curl commands. 
+
+First, discover. Same payload as before, but we also need to add HTTP headers to indicate the protocol version and method being called. 
+
+```bash
+$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: server/discover" -d '{     
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "ExampleClient",
+        "version": "1.0.0"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}' | jq
+
+{
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "result": {
+    "cacheScope": "private",
+    "capabilities": {
+      "prompts": {
+        "listChanged": true
+      },
+      "resources": {
+        "listChanged": true,
+        "subscribe": true
+      },
+      "tools": {
+        "listChanged": true
+      }
+    },
+    "resultType": "complete",
+    "supportedVersions": [
+      "2026-07-28"
+    ],
+    "ttlMs": 0,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+Next, we list the tools
+
+```bash
+$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Proto
+col-Version: 2026-07-28" -H "Mcp-Method: tools/list" -d '{     
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "method": "tools/list",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}' | jq
+
+
+{
+  "jsonrpc": "2.0",
+  "id": "tools-1",
+  "result": {
+    "cacheScope": "private",
+    "resultType": "complete",
+    "tools": [
+      {
+        "description": "Add two integers together!",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "title": "A",
+              "type": "integer"
+            },
+            "b": {
+              "title": "B",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "a",
+            "b"
+          ],
+          "title": "addArguments"
+        },
+        "name": "add",
+        "outputSchema": {
+          "properties": {
+            "result": {
+              "title": "Result",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "result"
+          ],
+          "title": "addOutput",
+          "type": "object"
+        }
+      }
+    ],
+    "ttlMs": 0,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+And now to call the tool, once again notice the headers being passed - protocol version, method, and method name.  
+
+
+```bash
+$ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Proto
+col-Version: 2026-07-28" -H "Mcp-Method: tools/call" -H "Mcp-Name: add" -d '{
+  "jsonrpc": "2.0",
+  "id": "call-add-1",
+  "method": "tools/call",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
+    "name": "add",
+    "arguments": {
+      "a": 5,
+      "b": 3
+    }
+  }
+}' | jq
+
+{
+  "jsonrpc": "2.0",
+  "id": "call-add-1",
+  "result": {
+    "content": [
+      {
+        "text": "8",
+        "type": "text"
+      }
+    ],
+    "isError": false,
+    "resultType": "complete",
+    "structuredContent": {
+      "result": 8
+    },
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+Just for completeness I'll also call a resource. 
+
+```bash
+ curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: resources/read" -H "Mcp-Name: database://users"  -d '{
+  "jsonrpc": "2.0",
+  "id": "get-users-table-1",
+  "method": "resources/read",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
+    "uri": "database://users"
+  }
+}' | jq
+{
+  "jsonrpc": "2.0",
+  "id": "get-users-table-1",
+  "result": {
+    "cacheScope": "private",
+    "contents": [
+      {
+        "mimeType": "text/plain",
+        "text": "[\n  {\n    \"id\": 1,\n    \"name\": \"Alice\"\n  },\n  {\n    \"id\": 2,\n    \"name\": \"Bob\"\n  }\n]",
+        "uri": "database://users"
+      }
+    ],
+    "resultType": "complete",
+    "ttlMs": 0,
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
+And a prompt
+
+```bash
+curl -s -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Proto
+col-Version: 2026-07-28" -H "Mcp-Method: prompts/get" -H "Mcp-Name: ask_question"  -d '{     
+  "jsonrpc": "2.0",
+  "id": "get-prompt-1",
+  "method": "prompts/get",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientCapabilities": {}
+    },
+    "name": "ask_question",
+    "arguments": {
+      "question": "What is MCP?"
+    }
+  }
+}' | jq
+{
+  "jsonrpc": "2.0",
+  "id": "get-prompt-1",
+  "result": {
+    "description": "Ask a question and get an answer",
+    "messages": [
+      {
+        "content": {
+          "text": "You asked: What is MCP? but there is no answer.",
+          "type": "text"
+        },
+        "role": "user"
+      }
+    ],
+    "resultType": "complete",
+    "_meta": {
+      "io.modelcontextprotocol/serverInfo": {
+        "name": "learn",
+        "version": ""
+      }
+    }
+  }
+}
+```
+
