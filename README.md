@@ -735,3 +735,80 @@ data: {"jsonrpc":"2.0","id":"slow-1","result":{"content":[{"text":"Counted to 5"
 
 ```
 
+## HTTP with Authentication
+
+Now on to everyone's favourite topic - security. 
+
+So far we've had unauthenticated HTTP requests. We can add authentication. 
+
+To do this we'll need a few moving parts and a bit of a primer. We'll need an identity server, for this we'll use Keycloak. Don't worry I've preconfigured it. 
+We'll also need to configure the MCP server to require an access token, issued by that identity server, for incoming requests. 
+But it isn't enough to just let any MCP client connect, the 2026-07-28 protocol requires that clients be preconfigured and have an online presence registered with the server. This is known as Client Identification Metadata Document (CIMD).  
+
+For example, the CIMD URL for Visual Studio Code is: https://vscode.dev/oauth/client-metadata.json  have a look at its contents
+
+It contains:
+
+```json
+{
+  "client_name": "Visual Studio Code",
+  "logo_uri": "https://code.visualstudio.com/assets/branding/code-stable.png",
+  "grant_types": [
+    "authorization_code",
+    "refresh_token",
+    "urn:ietf:params:oauth:grant-type:device_code"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "token_endpoint_auth_method": "none",
+  "application_type": "native",
+  "client_id": "https://vscode.dev/oauth/client-metadata.json",
+  "client_uri": "https://vscode.dev/product",
+  "redirect_uris": [
+    "http://127.0.0.1:33418/",
+    "https://vscode.dev/redirect"
+  ]
+}
+```
+
+We need to register those details in KeyCloak, so that it knows about the client, in this case VSCode, which in turn gives Keycloak information on the name, logo, and where to redirect after authentication. 
+
+### Keycloak Configuration
+
+Run the docker compose up shown here <link TBD>. It requires the realms.json <link TBD>
+
+Run 
+
+```bash
+docker compose up
+```
+
+And have a browse at http://localhost:8080 to access the Keycloak admin console, use the credentials admin/admin. You will find a [client profile](http://localhost:8080/admin/master/console/#/mcp/realm-settings/client-policies/cimd-profile/edit-profile) and a [client policy](http://localhost:8080/admin/master/console/#/mcp/realm-settings/client-policies/cimd-policy/edit-policy/client-id-uri/edit-condition) configured for VSCode's metadata. 
+
+
+### MCP Server Oauth configuration
+
+Modify the MCP server configuration to include the Keycloak identity provider. 
+
+
+```python
+
+ISSUER = "http://localhost:8080/realms/mcp"
+MCP_URL = "http://localhost:8000/mcp"
+AUDIENCE = MCP_URL  # must match an `aud` claim you configure in Keycloak
+
+mcp = MCPServer( 
+    "learn",
+    token_verifier=KeycloakVerifier(),
+    auth=AuthSettings(
+        issuer_url=ISSUER,
+        resource_server_url=MCP_URL,
+        required_scopes=["openid"],
+        validate_token_resource=True,
+    ),
+)
+
+```
+
+

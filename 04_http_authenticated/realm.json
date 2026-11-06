@@ -1,0 +1,73 @@
+{
+  "id": "mcp",
+  "realm": "mcp",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "rememberMe": false,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 3600,
+  "accessTokenLifespanForImplicitFlow": 3600,
+  "clientProfiles": {
+    "profiles": [
+      {
+        "name": "cimd-profile",
+        "description": "",
+        "executors": [
+          {
+            "executor": "client-id-metadata-document",
+            "configuration": {
+              "cimd-allow-http-scheme": false,
+              "cimd-allow-permitted-domains": ["vscode.dev", "127.0.0.1", "code.visualstudio.com"],
+              "cimd-restrict-same-domain": false,
+              "cimd-required-properties": [],
+              "cimd-resource-indicator-allow-list": ["http://localhost:8000/mcp"],
+              "only-allow-confidential-client": false,
+              "accept-public-client-with-confidential-client-only-grant": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "clientPolicies": {
+    "policies": [
+      {
+        "name": "cimd-policy",
+        "description": "",
+        "enabled": true,
+        "mode": "DEFAULT",
+        "conditions": [
+          {
+            "condition": "client-id-uri",
+            "configuration": {
+              "is-negative-logic": false,
+              "client-id-uri-scheme": ["https"],
+              "client-id-uri-allow-permitted-domains": ["vscode.dev"]
+            }
+          }
+        ],
+        "profiles": ["cimd-profile"]
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "test",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "test@example.com",
+      "firstName": "Test",
+      "lastName": "User",
+      "realmRoles": ["offline_access"],
+      "credentials": [
+        { "type": "password", "value": "test", "temporary": false }
+      ]
+    }
+  ]
+}
