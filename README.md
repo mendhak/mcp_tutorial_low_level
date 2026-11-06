@@ -681,3 +681,57 @@ col-Version: 2026-07-28" -H "Mcp-Method: prompts/get" -H "Mcp-Name: ask_question
 }
 ```
 
+
+## HTTP Streaming 
+
+MCPs support HTTP streaming, which allows tools to report progress over time. This is often used during chat interactions as portions of the response are generated and sent to the client.  
+
+Add a slow_count tool to the server
+
+<code snippet>
+
+Now when calling it, notice how the response comes back in blocks as report prgoresses. 
+
+```bash
+
+curl -N http://localhost:8000/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Mcp-Protocol-Version: 2026-07-28' \
+  -H 'Mcp-Method: tools/call' \
+  -H 'Mcp-Name: slow_count' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "slow-1",
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+        "progressToken": "p1"
+      },
+      "name": "slow_count",
+      "arguments": {"n": 5}
+    }
+  }'
+
+event: message
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":1,"total":5,"message":"Counted 1"}}
+
+event: message
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":2,"total":5,"message":"Counted 2"}}
+
+event: message
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":3,"total":5,"message":"Counted 3"}}
+
+event: message
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":4,"total":5,"message":"Counted 4"}}
+
+event: message
+data: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progressToken":"p1","progress":5,"total":5,"message":"Counted 5"}}
+
+event: message
+data: {"jsonrpc":"2.0","id":"slow-1","result":{"content":[{"text":"Counted to 5","type":"text"}],"isError":false,"resultType":"complete","structuredContent":{"result":"Counted to 5"},"_meta":{"io.modelcontextprotocol/serverInfo":{"name":"learn","version":""}}}}
+
+```
+
