@@ -1,7 +1,30 @@
 from fastmcp import FastMCP, Context
 import asyncio
 
-mcp = FastMCP("learn")
+ISSUER = "http://localhost:8080/realms/mcp"
+MCP_URL = "http://localhost:8000/mcp"
+AUDIENCE = MCP_URL  # must match an `aud` claim you configure in Keycloak
+
+from fastmcp.server.auth.providers.jwt import JWTVerifier
+from fastmcp.server.auth import RemoteAuthProvider
+
+from pydantic import AnyHttpUrl
+
+# Configure JWT verification against your identity provider
+verifier = JWTVerifier(
+    jwks_uri=f"{ISSUER}/protocol/openid-connect/certs",
+    issuer=ISSUER,
+    audience=AUDIENCE,
+    algorithm="RS256"
+)
+
+auth = RemoteAuthProvider(
+    token_verifier=verifier,
+    authorization_servers=[AnyHttpUrl(ISSUER)],
+    base_url="http://localhost:8000",
+)
+
+mcp = FastMCP("learn", auth=auth)
 
 @mcp.tool()
 def add(a: int, b: int) -> int:

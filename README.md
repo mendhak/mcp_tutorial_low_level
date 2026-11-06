@@ -308,7 +308,7 @@ $ (echo '{
   "params": {
     "_meta": {
       "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-      "io.modelcontextprotocol/clientCapabilities": {}
+      "io.modelcontextprotocol/cliewe are essentially impersonatingntCapabilities": {}
     },
     "uri": "database://users"
   }
@@ -821,24 +821,149 @@ And have a browse at http://localhost:8080 to access the Keycloak admin console,
 
 Modify the MCP server configuration to include the Keycloak identity provider. 
 
+< code snippet >
 
-```python
 
-ISSUER = "http://localhost:8080/realms/mcp"
-MCP_URL = "http://localhost:8000/mcp"
-AUDIENCE = MCP_URL  # must match an `aud` claim you configure in Keycloak
+Now run the web server again
 
-mcp = MCPServer( 
-    "learn",
-    token_verifier=KeycloakVerifier(),
-    auth=AuthSettings(
-        issuer_url=ISSUER,
-        resource_server_url=MCP_URL,
-        required_scopes=["openid"],
-        validate_token_resource=True,
-    ),
-)
+```bash
+fastmcp run main.py:mcp --transport http --port 8000
+```
+
+And try the discover endpoint once more to get an HTTP 401 response. 
+
+
+```bash
+ curl -s -i -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Ve
+rsion: 2026-07-28" -H "Mcp-Method: server/discover" -d '{     
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "ExampleClient",
+        "version": "1.0.0"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}' 
+HTTP/1.1 401 Unauthorized
+date: Fri, 06 Nov 2026 16:51:00 GMT
+server: uvicorn
+content-length: 0
+www-authenticate: Bearer resource_metadata="http://localhost:8000/.well-known/oauth-protected-resource/mcp"
+```
+Notice in the response header, the `www-authenticate` field indicates that the resource is protected by OAuth and provides the URL to the resource metadata. This tells the client that it needs to obtain a valid access token from the identity provider (Keycloak) to access the MCP server.
+
+Let's query that URL
+
+```bash
+curl -s http://localhost:8000/.well-known/oauth-protected-resource/mcp | jq
+
+{
+  "resource": "http://localhost:8000/mcp",
+  "authorization_servers": [
+    "http://localhost:8080/realms/mcp"
+  ],
+  "scopes_supported": [],
+  "bearer_methods_supported": [
+    "header"
+  ]
+}
+```
+
+The authorization_servers points at `http://localhost:8080/realms/mcp` which is the Keycloak realm that was configured earlier. 
+
+We then call its well known openid-configuration
+
+```bash
+$ curl -s http://localhost:8080/realms/mcp/.well-known/openid-configuration | jq
+{
+  "issuer": "http://localhost:8080/realms/mcp",
+  "authorization_endpoint": "http://localhost:8080/realms/mcp/protocol/openid-connect/auth",
+  ...
+  ...
+  "client_id_metadata_document_supported": true
+}
+```
+The `client_id_metadata_document_supported` indicates support for CIMD (Client ID Metadata Documents), so the client then knows how to proceed by generating a login URL for the user to authenticate, and obtain an access token. 
+
+Let's actually do this, let's generate a login URL. There's a bit of bash required to construct it:
+
+```bash
+CODE_VERIFIER=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+echo "CODE_VERIFIER=$CODE_VERIFIER"
+CODE_CHALLENGE=$(printf '%s' "$CODE_VERIFIER" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+
+URL="http://localhost:8080/realms/mcp/protocol/openid-connect/auth?client_id=https://vscode.dev/oauth/client-metadata.json&response_type=code&code_challenge=${CODE_CHALLENGE}&code_challenge_method=S256&scope=openid+offline_access&resource=http://localhost:8000/mcp&redirect_uri=http://127.0.0.1:33418/&state=$(openssl rand -base64 16 | tr '+/' '-_' | tr -d '=')"
+echo "$URL"
+echo "$CODE_VERIFIER"
+```
+
+Take a moment to study the URL, notice that the client ID is set to VSCode's CIMD URL.   
+Copy that URL into a browser and begin the login process, use test/test for the credentials. 
+
+You will then see a consent screen, "Grant Access to Visual Studio Code" 
+
+< screenshots here >
+
+After granting access, the browser will try to redirect to the `redirect_uri` from earlier, but nothing's listening there. That's expected, we can still carry on. 
+
+So, taking the URL, such as
+
+```
+http://127.0.0.1:33418/?state=47_CseCkvgkokQIgEfNoUQ&session_state=Yp0-PXbPKPnHKTxyEXjTIwPP&iss=http%3A%2F%2Flocalhost%3A8080%2Frealms%2Fmcp&code=cfb09146-a79d-5644-d49c-c634d9303329.Yp0-PXbPKPnHKTxyEXjTIwPP.2d6c0e01-527a-4f6f-aa0b-673fdee407b6
+```
+
+We get the `code` value from the URL, and then using the code_verifier from our URL generation step, we request an access token. 
+
+```
+curl -s -X POST http://localhost:8080/realms/mcp/protocol/openid-connect/token \
+  -d grant_type=authorization_code \
+  -d code=cfb09146-a79d-5644-d49c-c634d9303329.Yp0-PXbPKPnHKTxyEXjTIwPP.2d6c0e01-527a-4f6f-aa0b-673fdee407b6 \
+  -d redirect_uri=http://127.0.0.1:33418/ \
+  -d code_verifier=$CODE_VERIFIER \
+  -d client_id=https://vscode.dev/oauth/client-metadata.json
 
 ```
 
+
+Which gives an access token in the response
+
+```
+{"access_token":"eyJh.....
+```
+
+We can inspect that access token in a JWT decoder such as https://jwt.ms
+
+<screenshot here>
+
+And finally now that we have an access token we can call the discover endpoint, making sure to pass the Authorization: Bearer header. 
+
+```bash
+
+curl -s -i -X POST http://localhost:8000/mcp -H "Content-Type: application/json" -H "MCP-Protocol-Version: 2026-07-28" -H "Mcp-Method: server/discover" -H "Authorization: Bearer eyJ.... \
+  -d '{     
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": {
+        "name": "ExampleClient",
+        "version": "1.0.0"
+      },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}' 
+
+
+After that, all the subsequent calls are the same as before, just making sure to include the Authorization: Bearer header with the access token.
+
+In case you haven't spotted the security hole here, the MCP CIMD mechanism allows us to impersonate any 'well known' MCP client by obtaining an access token for it, such as VSCode, Claude Code, etc. From the authorization server's perspective, they are none the wiser, they think we are the legitimate client. However, the Client ID being a URL immediately introduces the risk of SSRF, as an attacker could potentially make the server perform requests to arbitrary URLs. As can be seen, MCP's security model continues to be an afterthought, and it should not be a surprise if this goes through a number of further revisions in the future. 
 
