@@ -7,10 +7,9 @@ def add(a: int, b: int) -> int:
     """Add two integers together!"""
     return a+b
 
-
-@mcp.resource()
-def my_table() -> list[dict]:
-    """Return a table of data"""
+@mcp.resource("database://users")
+def users_table() -> list[dict]:
+    """Return a table of the users"""
     return [
         {"id": 1, "name": "Alice"},
         {"id": 2, "name": "Bob"}
@@ -19,4 +18,4 @@ def my_table() -> list[dict]:
 @mcp.prompt()
 def ask_question(question: str) -> str:
     """Ask a question and get an answer"""
-    return f"You asked: {question}"
+    return f"You asked: {question} but there is no answer."
