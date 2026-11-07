@@ -718,7 +718,7 @@ MCPs support HTTP streaming, which allows tools to report progress over time. Th
 
 Add a slow_count tool to the server
 
-<code snippet>
+< code snippet >
 
 Now when calling it, notice how the response comes back in blocks as report prgoresses. 
 
