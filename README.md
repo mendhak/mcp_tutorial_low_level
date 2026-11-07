@@ -441,7 +441,7 @@ $ (echo '{
 
 To serve the same MCP server over HTTP, we add FastAPI integration. 
 
-<code snippet>
+< code snippet >
 
 Then run it with 
 
