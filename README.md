@@ -961,6 +961,7 @@ curl -s -i -X POST http://localhost:8000/mcp -H "Content-Type: application/json"
     }
   }
 }' 
+```
 
 
 After that, all the subsequent calls are the same as before, just making sure to include the Authorization: Bearer header with the access token.
